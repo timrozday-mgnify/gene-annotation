@@ -26,7 +26,7 @@ workflow GENEANNOTATION {
     db_ch = Channel
         .from(
             params.databases.collect { k, v ->
-                if ((v instanceof Map) && v.containsKey('base_dir')) {
+                if ((v instanceof Map) && v.containsKey('files')) {
                     return [id: k] + v
                 }
             }
