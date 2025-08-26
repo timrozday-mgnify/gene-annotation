@@ -25,6 +25,9 @@ input:
         description: One or more HMM profiles created with hmmbuild
         pattern: "*.{hmm,hmm.gz}"
         ontologies: []
+    - n_models:
+        type: number
+        description: Number of HMM profiles, for e-value calculation
     - seqdb:
         type: file
         description: Database of sequences in FASTA format
