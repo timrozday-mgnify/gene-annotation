@@ -57,7 +57,7 @@ workflow GENEANNOTATION {
     // Annotate CDSs
     pfam_db = dbs.pfam
         .map { meta, fp ->
-            file("${fp}/${meta.base_dir}/${meta.files.hmm}")
+            file("${fp}/${meta.files.hmm}")
         }
         .first()
 
