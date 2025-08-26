@@ -6,7 +6,6 @@
 include { samplesheetToList } from 'plugin/nf-schema'
 include { softwareVersionsToYAML } from '../subworkflows/nf-core/utils_nfcore_pipeline'
 include { SEQSTATS } from  '../modules/local/seqstats/main'
-include { CHUNKFASTX } from  '../modules/local/chunkfastx/main'
 include { CONCATENATE } from  '../modules/local/concatenate/main'
 include { PYRODIGAL as PYRODIGAL_SMALL } from '../modules/nf-core/pyrodigal/main'
 include { PYRODIGAL as PYRODIGAL_LARGE } from '../modules/nf-core/pyrodigal/main'
@@ -19,7 +18,7 @@ include { FETCHDB } from '../subworkflows/local/fetchdb/main'
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
-workflow GENOMEANNOTATION {
+workflow GENEANNOTATION {
     main:
     ch_versions = Channel.empty()
 
@@ -47,7 +46,7 @@ workflow GENOMEANNOTATION {
     // Parse samplesheet and fetch reads
     samplesheet = Channel.fromList(samplesheetToList(params.samplesheet, "${workflow.projectDir}/assets/schema_input.json"))
 
-    genome_contigs = samplesheet.map {
+    cdss = samplesheet.map {
         sample, fasta ->
         [
             ['id': sample],
@@ -55,48 +54,36 @@ workflow GENOMEANNOTATION {
         ]
     }
 
-    // Get CDSs from contigs
-    SEQSTATS(genome_contigs)
-    genome_contig_split = SEQSTATS.out.stats
-        .join(genome_contigs)
-        .map { meta, stats, fasta ->
-            def json = new groovy.json.JsonSlurper().parseText(stats.text)
-            def meta_ = [
-                'base_count': json["base_count"], 
-                'seq_count': json["seq_count"]
-            ]
-            return tuple(meta + meta_, fasta)
-        }
-        .branch { meta, _fasta -> 
-            large: meta.base_count >= 100000 
-            small: meta.base_count < 100000
-        }
-
-    PYRODIGAL_SMALL(genome_contig_split.small, 'gff')
-    PYRODIGAL_LARGE(genome_contig_split.large, 'gff')
-
-    cdss = PYRODIGAL_SMALL.out.faa
-        .mix(PYRODIGAL_LARGE.out.faa)
     // Annotate CDSs
-    CHUNKFASTX(cdss)
-    chunked_cdss = CHUNKFASTX.out.chunked_reads.flatMap {
-        meta, chunks ->
-        def chunks_ = chunks instanceof Collection ? chunks : [chunks]
-        return chunks_.collect {
-            chunk ->
-            tuple(groupKey(meta, chunks_.size()), chunk)
-        }
-    }
-
     pfam_db = dbs.pfam
         .map { meta, fp ->
             file("${fp}/${meta.base_dir}/${meta.files.hmm}")
         }
         .first()
 
-    chunked_cdss_pfam_in = chunked_cdss
+    // split, comine with db, group/count then flatten again, and do a final map
+    chunked_cdss_pfam_in = cdss
+        .splitFasta(
+            size: params.hmmsearch_chunksize,
+            elem: 1,
+            file: true
+        )
         .combine(pfam_db)
-        .map { meta, seqs, db -> tuple(meta, db, seqs, false, true, true) }
+        .map { meta, reads, db -> tuple(meta, tuple(reads, db)) }
+        .groupTuple()
+        .flatMap {
+            meta, chunks ->
+            def chunks_ = chunks instanceof Collection ? chunks : [chunks]
+            def chunksize = chunks_.size()
+            return chunks_.collect {
+                chunk ->
+                tuple(groupKey(meta, chunksize), chunk)
+            }
+        }
+        .map { meta, v ->
+            def (seqs, db) = v
+            return [meta, db, seqs, false, true, true] 
+        }
 
     HMMER_HMMSEARCH(chunked_cdss_pfam_in)
 

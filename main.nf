@@ -15,7 +15,7 @@
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
-include { GENOMEANNOTATION  } from './workflows/genomeannotation'
+include { GENEANNOTATION  } from './workflows/geneannotation'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -28,7 +28,7 @@ workflow {
     //
     // WORKFLOW: Run pipeline
     //
-    GENOMEANNOTATION ()
+    GENEANNOTATION ()
 }
 
 /*
