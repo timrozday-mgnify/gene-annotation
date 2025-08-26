@@ -50,7 +50,7 @@ workflow GENEANNOTATION {
         id, faa ->
         [
             ['id': id],
-            faa,
+            file(faa),
         ]
     }
 
