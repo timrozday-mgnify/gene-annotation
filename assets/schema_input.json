@@ -7,18 +7,18 @@
     "items": {
         "type": "object",
         "properties": {
-            "sample": {
+            "id": {
                 "type": "string",
                 "pattern": "^\\S+$",
                 "errorMessage": "Sample name must be provided and cannot contain spaces",
                 "minLength": 3
             },
-            "fastx": {
+            "faa": {
                 "type": "string",
-                "pattern": "^\\S+\\.f(ast)?[aq](\\.gz)?$",
-                "errorMessage": "FASTA/FASTQ file for reads must be provided, cannot contain spaces and must have extension '.fq', '.fastq', '.fa' or '.fasta' with optional '.gz' afterwards."
+                "pattern": "^\\S+\\.faa(\\.gz)?$",
+                "errorMessage": "FASTA amino acid file for reads must be provided, cannot contain spaces and must have extension '.faa' with optional '.gz' afterwards."
             }
         },
-        "required": ["sample", "fastx"]
+        "required": ["id", "faa"]
     }
 }
