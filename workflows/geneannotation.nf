@@ -35,7 +35,9 @@ workflow GENEANNOTATION {
 
     FETCHDB(db_ch, "${projectDir}/${params.databases.cache_path}")
     hmm_dbs = FETCHDB.out.dbs
-        .map { meta, fp -> [meta, [fp, params.databases[meta.id].variables.num_models]] }
+        .map { meta, fp ->
+        def db_params = params.databases[meta.id] 
+        [meta, [file("${fp}/${db_params.files.hmm}"), db_params.variables.num_models]] }
 
     // Parse samplesheet and fetch reads
     samplesheet = Channel.fromList(samplesheetToList(params.samplesheet, "${workflow.projectDir}/assets/schema_input.json"))
