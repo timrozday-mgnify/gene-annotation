@@ -34,14 +34,8 @@ workflow GENEANNOTATION {
         .filter { it }
 
     FETCHDB(db_ch, "${projectDir}/${params.databases.cache_path}")
-    dbs_path_ch = FETCHDB.out.dbs
-
-    dbs_path_ch
-        .branch { meta, _fp ->
-            pfam: meta.id == 'pfam'
-        }
-        .set { dbs }
-
+    hmm_dbs = FETCHDB.out.dbs
+        .map { meta, fp -> [meta, [fp, params[meta.id].variables.num_models]] }
 
     // Parse samplesheet and fetch reads
     samplesheet = Channel.fromList(samplesheetToList(params.samplesheet, "${workflow.projectDir}/assets/schema_input.json"))
@@ -55,11 +49,6 @@ workflow GENEANNOTATION {
     }
 
     // Annotate CDSs
-    pfam_db = dbs.pfam
-        .map { meta, fp ->
-            file("${fp}/${meta.files.hmm}")
-        }
-        .first()
 
     // split, comine with db, group/count then flatten again, and do a final map
     chunked_cdss_pfam_in = cdss
@@ -68,8 +57,9 @@ workflow GENEANNOTATION {
             elem: 1,
             file: true
         )
-        .combine(pfam_db)
-        .map { meta, reads, db -> tuple(meta, tuple(reads, db)) }
+        .combine(hmm_dbs)
+        .map { 
+            meta, reads, db_meta, db -> tuple(meta + ['db_id': db_meta.id], tuple(reads, db)) }
         .groupTuple()
         .flatMap {
             meta, chunks ->
@@ -82,7 +72,8 @@ workflow GENEANNOTATION {
         }
         .map { meta, v ->
             def (seqs, db) = v
-            return [meta, db, seqs, false, true, true] 
+            def (db_fp, db_nseqs) = db
+            return [meta, db_fp, db_nseqs, seqs, false, true, true] 
         }
 
     HMMER_HMMSEARCH(chunked_cdss_pfam_in)
@@ -90,7 +81,7 @@ workflow GENEANNOTATION {
     CONCATENATE(
         HMMER_HMMSEARCH.out.domain_summary
         .groupTuple()
-        .map{ meta, results -> tuple(meta, "${meta.id}.domtbl.gz", results) }
+        .map{ meta, results -> tuple(meta, "${meta.id}_${meta.db_id}.domtbl.gz", results) }
     )
 
     emit:
