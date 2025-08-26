@@ -47,10 +47,10 @@ workflow GENEANNOTATION {
     samplesheet = Channel.fromList(samplesheetToList(params.samplesheet, "${workflow.projectDir}/assets/schema_input.json"))
 
     cdss = samplesheet.map {
-        sample, fasta ->
+        id, faa ->
         [
-            ['id': sample],
-            fasta,
+            ['id': id],
+            faa,
         ]
     }
 
