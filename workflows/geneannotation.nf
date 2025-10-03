@@ -125,7 +125,6 @@ workflow GENEANNOTATION {
             elem: 1,
             file: true
         )
-    chunked_cdss_kofam_in.view { "chunked_cdss_kofam_in - ${it}" }
 
     kofam_chunked_db_ch = Channel
         .from(
@@ -137,7 +136,6 @@ workflow GENEANNOTATION {
                 }
             }
         )
-    kofam_chunked_db_ch.view { "kofam_chunked_db_ch - ${it}" }
 
     kofam_seqs_dbs_ch = chunked_cdss_kofam_in
         .combine(kofam_chunked_db_ch)
