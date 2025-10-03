@@ -99,22 +99,22 @@ workflow GENEANNOTATION {
     DBCAN_OVERVIEW_CONCATENATE(
         RUNDBCAN_CAZYMEANNOTATION.out.cazyme_annotation
         .groupTuple()
-        .map{ meta, results -> tuple(meta, "${meta.id}_dbcan_overview.txt", results) }
+        .map{ meta, results -> tuple(meta, "${meta.id}_dbcan_overview.tsv", results) }
     )
     DBCAN_CAZYME_CONCATENATE(
         RUNDBCAN_CAZYMEANNOTATION.out.dbcanhmm_results
         .groupTuple()
-        .map{ meta, results -> tuple(meta, "${meta.id}_dbcan_cazyme.txt", results) }
+        .map{ meta, results -> tuple(meta, "${meta.id}_dbcan_cazyme.tsv", results) }
     )
     DBCAN_SUBSTRATE_CONCATENATE(
         RUNDBCAN_CAZYMEANNOTATION.out.dbcansub_results
         .groupTuple()
-        .map{ meta, results -> tuple(meta, "${meta.id}_dbcan_substrate.txt", results) }
+        .map{ meta, results -> tuple(meta, "${meta.id}_dbcan_substrate.tsv", results) }
     )
     DBCAN_DIAMOND_CONCATENATE(
         RUNDBCAN_CAZYMEANNOTATION.out.dbcandiamond_results
         .groupTuple()
-        .map{ meta, results -> tuple(meta, "${meta.id}_dbcan_diamond.txt", results) }
+        .map{ meta, results -> tuple(meta, "${meta.id}_dbcan_diamond.tsv", results) }
     )
 
     // KOfam
@@ -125,6 +125,21 @@ workflow GENEANNOTATION {
             elem: 1,
             file: true
         )
+
+    kofam_chunked_db_ch = Channel
+        .from(
+            params.databases.kofam_chunked.collect { k, v ->
+                if (v instanceof Map) {
+                    if (v.containsKey('files')) {
+                        return [id: k] + v
+                    }
+                }
+            }.flatten()
+        )
+        .filter { it }
+
+    kofam_seqs_dbs_ch = chunked_cdss_kofam_in
+        .combine(kofam_chunked_db_ch)
         .groupTuple()
         .flatMap {
             meta, chunks ->
@@ -135,11 +150,16 @@ workflow GENEANNOTATION {
                 tuple(groupKey(meta, chunksize), chunk)
             }
         }
-
+        .multiMap { meta, seqs, db_meta ->
+            seqs: [meta, seqs]
+            profiles: file(db_meta.files.profiles)
+            ko_list: file(db_meta.files.ko_list)
+        }
+    
     KOFAMSCAN(
-        chunked_cdss_kofam_in, 
-        file(params.databases.kofam.files.profiles), 
-        file(params.databases.kofam.files.ko_list)
+        kofam_seqs_dbs_ch.seqs,
+        kofam_seqs_dbs_ch.profiles,
+        kofam_seqs_dbs_ch.ko_list,
     )
     KOFAM_TSV_CONCATENATE(
         KOFAMSCAN.out.tsv
