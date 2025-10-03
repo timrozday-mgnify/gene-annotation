@@ -141,6 +141,7 @@ workflow GENEANNOTATION {
 
     kofam_seqs_dbs_ch = chunked_cdss_kofam_in
         .combine(kofam_chunked_db_ch)
+        .map { meta, seqs, db_meta -> [meta, [seqs, db_meta]] }
         .groupTuple()
         .flatMap {
             meta, chunks ->
@@ -151,7 +152,8 @@ workflow GENEANNOTATION {
                 tuple(groupKey(meta, chunksize), chunk)
             }
         }
-        .multiMap { meta, seqs, db_meta ->
+        .multiMap { meta, v ->
+            def (seqs, db_meta) = v
             seqs: [meta, seqs]
             profiles: file(db_meta.files.profiles)
             ko_list: file(db_meta.files.ko_list)
