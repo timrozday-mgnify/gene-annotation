@@ -12,7 +12,7 @@ process SEQKIT_SEQ {
     tuple val(meta), path(fastx)
 
     output:
-    tuple val(meta), path("${prefix}.*"), emit: fastx
+    tuple val(meta), path("output/${fastx.getName()}"), emit: fastx
     path "versions.yml", emit: versions
 
     when:
@@ -21,24 +21,16 @@ process SEQKIT_SEQ {
     script:
     def args = task.ext.args ?: ''
     def args2 = task.ext.args2 ?: ''
-    prefix = task.ext.prefix ?: "${meta.id}"
-    def extension = "fastq"
-    if ("${fastx}" ==~ /.+\.fasta|.+\.fasta.gz|.+\.fa|.+\.fa.gz|.+\.fas|.+\.fas.gz|.+\.fna|.+\.fna.gz|.+\.fsa|.+\.fsa.gz/) {
-        extension = "fasta"
-    }
-    extension = fastx.toString().endsWith('.gz') ? "${extension}.gz" : extension
-    def call_gzip = extension.endsWith('.gz') ? "| gzip -c ${args2}" : ''
-    if ("${prefix}.${extension}" == "${fastx}") {
-        error("Input and output names are the same, use \"task.ext.prefix\" to disambiguate!")
-    }
+    def call_gzip = fastx.toString().endsWith('.gz') ? "| gzip -c ${args2}" : ''
     """
+    mkdir output
     seqkit \\
         seq \\
         --threads ${task.cpus} \\
         ${args} \\
         ${fastx} \\
         ${call_gzip} \\
-        > ${prefix}.${extension}
+        > output/${fastx.getName()}
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
@@ -47,17 +39,9 @@ process SEQKIT_SEQ {
     """
 
     stub:
-    prefix = task.ext.prefix ?: "${meta.id}"
-    def extension = "fastq"
-    if ("${fastx}" ==~ /.+\.fasta|.+\.fasta.gz|.+\.fa|.+\.fa.gz|.+\.fas|.+\.fas.gz|.+\.fna|.+\.fna.gz|.+\.fsa|.+\.fsa.gz/) {
-        extension = "fasta"
-    }
-    extension = fastx.toString().endsWith('.gz') ? "${extension}.gz" : extension
-    if ("${prefix}.${extension}" == "${fastx}") {
-        error("Input and output names are the same, use \"task.ext.prefix\" to disambiguate!")
-    }
     """
-    touch ${prefix}.${extension}
+    mkdir output
+    touch output/${fastx.getName()}
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
