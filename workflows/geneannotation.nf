@@ -1,5 +1,6 @@
 include { samplesheetToList } from 'plugin/nf-schema'
 include { softwareVersionsToYAML } from '../subworkflows/nf-core/utils_nfcore_pipeline'
+include { SEQKIT_SEQ } from '../modules/nf-core/seqkit/seq/main'
 include { HMMER_HMMSEARCH } from '../modules/nf-core/hmmer/hmmsearch/main'
 include { RUNDBCAN_CAZYMEANNOTATION } from '../modules/nf-core/rundbcan/cazymeannotation/main'
 include { KOFAMSCAN } from '../modules/nf-core/kofamscan/main'
@@ -16,8 +17,8 @@ workflow GENEANNOTATION {
     ch_versions = Channel.empty()
 
     // Parse samplesheet and fetch reads
-    samplesheet = Channel.fromList(samplesheetToList(params.samplesheet, "${workflow.projectDir}/assets/schema_input.json"))
 
+    samplesheet = Channel.fromList(samplesheetToList(params.samplesheet, "${workflow.projectDir}/assets/schema_input.json"))
     cdss = samplesheet.map {
         id, faa ->
         [
@@ -26,12 +27,19 @@ workflow GENEANNOTATION {
         ]
     }
 
+
+    // Filter out very long sequences
+
+    SEQKIT_SEQ(cdss)
+    filtered_cdss = SEQKIT_SEQ.out.fastx
+
+
     // Annotate CDSs
 
     // Pfam
     // split, comine with db, group/count then flatten again, and do a final map
     if(!params.skip_pfam) {
-        chunked_cdss_pfam_in = cdss
+        chunked_cdss_pfam_in = filtered_cdss
             .splitFasta(
                 size: params.pfam_chunksize,
                 elem: 1,
@@ -69,7 +77,7 @@ workflow GENEANNOTATION {
     // dbCAN3
     // split, comine with db, group/count then flatten again, and do a final map
     if(!params.skip_dbcan) {
-        chunked_cdss_dbcan_in = cdss
+        chunked_cdss_dbcan_in = filtered_cdss
             .splitFasta(
                 size: params.dbcan_chunksize,
                 elem: 1,
@@ -113,7 +121,7 @@ workflow GENEANNOTATION {
     // KOfam
     // split, comine with db, group/count then flatten again, and do a final map
     if(!params.skip_kofam) {
-        chunked_cdss_kofam_in = cdss
+        chunked_cdss_kofam_in = filtered_cdss
             .splitFasta(
                 size: params.kofam_chunksize,
                 elem: 1,
